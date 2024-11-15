@@ -1,0 +1,4 @@
+# Ignore .env file containing credentials, API keys, tokens, passwords, etc.
+.env
+/config/secret_key.txt
+/venv

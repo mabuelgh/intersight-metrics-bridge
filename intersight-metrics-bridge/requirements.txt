@@ -1,0 +1,6 @@
+influxdb-client
+intersight
+python-dotenv
+PyYAML
+requests
+urllib3

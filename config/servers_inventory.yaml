@@ -1,0 +1,7 @@
+ucs_servers:
+  intersight_domains:
+  - intersight_domain_ip: https://intersight.com
+    intersight_key_id: IntersightKeyIdHere
+    intersight_secret_key_path: /intersight-metrics-bridge/config/secret_key.txt
+    intersight_servers:
+    - server: ServerSerialNumberHere

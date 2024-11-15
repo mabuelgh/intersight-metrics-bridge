@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: intersight-metrics-bridge-influxdb
+    type: influxdb
+    access: proxy
+    url: $INFLUXDB_URL
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: $INFLUXDB_ORGANIZATION
+      defaultBucket: $INFLUXDB_BUCKET
+      tlsSkipVerify: true
+    secureJsonData:
+      token: $INFLUXDB_TOKEN

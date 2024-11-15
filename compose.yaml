@@ -1,0 +1,70 @@
+version: "3"
+
+services:
+
+  influxdb:
+    image: influxdb:latest
+    container_name: intersight-metrics-bridge-influxdb
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup 
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORGANIZATION}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET}
+      - DOCKER_INFLUXDB_INIT_RETENTION=${INFLUXDB_RETENTION}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN}
+    ports:
+      - "8086:8086"
+    networks:
+      - monitoring    
+    volumes:
+      - influxdb_config:/etc/influxdb2/
+      - influxdb_data:/var/lib/influxdb2/
+
+  grafana:
+    image: grafana/grafana-enterprise:latest
+    container_name: intersight-metrics-bridge-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - INFLUXDB_ORGANIZATION=${INFLUXDB_ORGANIZATION}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET}
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+      - INFLUXDB_URL=${INFLUXDB_URL}
+    networks:
+      - monitoring
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning/
+      - ./grafana/dashboards:/var/lib/grafana/dashboards/
+      - grafana_data:/var/lib/grafana/
+    depends_on:
+      - influxdb
+
+  intersight_metrics_bridge:
+    build: ./intersight-metrics-bridge
+    container_name: intersight-metrics-bridge-intersight-poller
+    environment:
+      - INFLUXDB_URL=${INFLUXDB_URL}
+      - INFLUXDB_ORGANIZATION=${INFLUXDB_ORGANIZATION}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET}
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+      - INTERSIGHT_METRICS_BRIDGE_CONFIG_INVENTORY=${INTERSIGHT_METRICS_BRIDGE_CONFIG_INVENTORY}
+    networks:
+      - monitoring    
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./config:/intersight-metrics-bridge/config/
+    depends_on:
+      - influxdb
+      - grafana
+
+networks:
+  monitoring:
+
+volumes:
+  influxdb_data:
+  influxdb_config:
+  grafana_data:
