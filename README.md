@@ -58,6 +58,7 @@ podman compose up  --force-recreate --build
 #### From Docker
 ```
 docker-compose build --no-cache
+docker-compose up
 ```
 
 ### Accessing Intersight Metrics Bridge
