@@ -82,7 +82,10 @@ Default password for influxDB and Grafana is admin / password.
 * Host Power Usage in Watt
 
 ## Features to come
-* Poll power usage of all servers in an IMM domain instead of current per server Serial Number collection.
+* New metrics to fetch
+
+## New Features
+* No Serial Number in YAML inventory will result in collection of all servers in an Intersight domain.
 
 ## Authors
 
