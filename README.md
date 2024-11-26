@@ -1,7 +1,7 @@
 # Intersight Metrics Bridge
 
-This project use containers to poll metrics from Intersight, store them in InfluxDB and display them into Grafana in a
-very simple way.
+This project, based on containers, is a tool to poll metrics from Intersight, store them in InfluxDB, and display them in Grafana. 
+It provides a very simple way to manage and visualize your metrics.
 
 ## Getting Started
 
@@ -14,9 +14,11 @@ These instructions will get you a copy of the project up and running on your mac
 * Docker (or Podman)
 
 ### Installing
+
 Intersight Metrics Bridge can be installed using any of ways below:
 
 #### From GitHub
+
 Click *"Clone or Download"* and *"Download ZIP"* on the GitHub website to download the whole project. 
 
 Uncompress the zip and put the folder on your system. 

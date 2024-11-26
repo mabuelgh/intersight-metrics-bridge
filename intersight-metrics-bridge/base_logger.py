@@ -1,4 +1,5 @@
 """This module defines logging format."""
+
 #!/usr/bin/env python3
 
 import logging

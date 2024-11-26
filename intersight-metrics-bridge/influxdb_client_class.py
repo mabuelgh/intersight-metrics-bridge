@@ -1,4 +1,5 @@
 """This module defines InfluxDbClient class and methods to read/write data from/to InfluxDB database."""
+
 #!/usr/bin/env python3
 
 import pprint

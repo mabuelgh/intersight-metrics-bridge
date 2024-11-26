@@ -1,4 +1,5 @@
 """This module defines IntersightMetricsBridge class and methods to poll power data from Cisco UCS servers (Intersight)."""
+
 #!/usr/bin/env python3
 
 import sys
@@ -53,7 +54,9 @@ class IntersightMetricsBridge:
             self.list_of_intersight_clients,
         )
 
-    def assign_clients_and_list_of_servers_to_poll(self, servers_inventory_yaml_file_path, request_all_servers=False):
+    def assign_clients_and_list_of_servers_to_poll(
+        self, servers_inventory_yaml_file_path, request_all_servers=False
+    ):
         """This method assigns Intersight clients and Cisco UCS servers to IntersightMetricsBridge instance. The Cisco UCS servers will be monitored for power usage.
 
         Args:
@@ -91,9 +94,7 @@ class IntersightMetricsBridge:
             )
 
             if intersight_domains == []:
-                logger.info(
-                    "There are no Intersight Domains to monitor.\n"
-                )
+                logger.info("There are no Intersight Domains to monitor.\n")
 
             for intersight_domain in intersight_domains:
                 intersight_domain_ip = intersight_domain.get("intersight_domain_ip", "")
@@ -102,6 +103,7 @@ class IntersightMetricsBridge:
                     "intersight_secret_key_path", ""
                 )
                 intersight_servers = intersight_domain.get("intersight_servers", [])
+
                 if not intersight_servers:
                     request_all_servers = True
 
@@ -110,9 +112,14 @@ class IntersightMetricsBridge:
                     intersight_secret_key_path=intersight_secret_key_path,
                     intersight_url=intersight_domain_ip,
                 )
+
                 intersight_client.generate_and_assign_intersight_api_client()
+
                 if request_all_servers:
-                    intersight_servers=self.get_all_servers_sn(intersight_client=intersight_client)
+                    intersight_servers = (
+                        intersight_client.get_all_servers_serial_number()
+                    )
+
                 intersight_client.assign_list_of_servers_to_monitor(
                     list_of_intersight_servers_to_monitor=intersight_servers
                 )
@@ -160,39 +167,6 @@ class IntersightMetricsBridge:
             "IntersightClient %s instance was successfully assigned to IntersightMetricsBridge instance.\n",
             intersight_client,
         )
-
-    def get_all_servers_sn(self, intersight_client):
-        """This method will get all the Serial Numbers from the servers in an Intersight domain.
-        This is used only if no SN were referenced in the servers_inventory.yaml file.
-        Returns a list of serial numbers
-
-        Args:
-        - intersight_client (intersight_client_class.IntersightClient): client to make API call on Intersight account
-        """
-
-        from intersight.api import compute_api
-
-        logger.info(
-            f"Fetching the Serial Numbers of all servers in Intersight account: {intersight_client.intersight_url}\n"
-        )
-
-        api = compute_api.ComputeApi(intersight_client._api_client)
-        try:
-            api_server_list = api.get_compute_physical_summary_list().results
-            server_list = []
-            for server in api_server_list:
-                if server["management_mode"] in ["UCSM","Intersight"]:
-                    server_dict = {"server": server["serial"]}
-                    server_list.append(server_dict)
-            return server_list
-
-        except Exception as exception:
-            logger.error(
-                f"Exception of type {exception.__class__.__name__} "
-                f"when trying to fetch SNs from {intersight_client.intersight_url}\n{exception}\n"
-            )
-
-            sys.exit(1)
 
     def start_polling(self, time_interval):
         """This method starts the polling of Cisco UCS servers, managed by Cisco Intersight.

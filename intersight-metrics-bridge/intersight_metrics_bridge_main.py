@@ -1,4 +1,5 @@
 """This module is the main module to poll the power usage of Cisco UCS servers."""
+
 #!/usr/bin/env python3
 
 import os
@@ -26,6 +27,9 @@ INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN")
 # Servers Inventory File Path
 SERVERS_INVENTORY_FILE_PATH = os.getenv("INTERSIGHT_METRICS_BRIDGE_CONFIG_INVENTORY")
 
+# Periodic Polling Interval
+POLLING_INTERVAL = 60
+
 ##############################################################################
 #                                  Main                                      #
 ##############################################################################
@@ -40,7 +44,10 @@ if __name__ == "__main__":
     # Assign InfluxDbClient instance to IntersightMetricsBridge instance.
     new_intersight_metrics_bridge.assign_influxdb_client(
         influxdb_client=InfluxDbClient(
-            bucket=INFLUXDB_BUCKET, influxdb_url=INFLUXDB_URL, org=INFLUXDB_ORGANIZATION, token=INFLUXDB_TOKEN
+            bucket=INFLUXDB_BUCKET,
+            influxdb_url=INFLUXDB_URL,
+            org=INFLUXDB_ORGANIZATION,
+            token=INFLUXDB_TOKEN,
         )
     )
     # Assign a list of Intersight clients and servers to IntersightMetricsBridge instance for power usage monitoring.
@@ -49,4 +56,4 @@ if __name__ == "__main__":
     )
 
     # Start IntersightMetricsBridge polling.
-    new_intersight_metrics_bridge.start_polling(time_interval=60)
+    new_intersight_metrics_bridge.start_polling(time_interval=POLLING_INTERVAL)

@@ -1,4 +1,5 @@
 """This module defines IntersightClient class and methods to fetch power data of Cisco UCS servers managed by Cisco Intersight."""
+
 #!/usr/bin/env python3
 
 import datetime
@@ -7,11 +8,14 @@ import sys
 import time
 import urllib3
 
+from dateutil import tz
+
 import intersight
-from intersight.api import telemetry_api
+from intersight.api import compute_api, telemetry_api
 import intersight.model.telemetry_druid_aggregator
-import intersight.model.telemetry_druid_data_source
 import intersight.model.telemetry_druid_and_filter
+import intersight.model.telemetry_druid_data_source
+import intersight.model.telemetry_druid_expression_post_aggregator
 import intersight.model.telemetry_druid_filter
 import intersight.model.telemetry_druid_period_granularity
 import intersight.model.telemetry_druid_query_context
@@ -138,6 +142,44 @@ class IntersightClient:
             "Intersight API Client was successfully generated for authentication to Intersight and assigned to IntersightClient.\n"
         )
 
+    def generate_data_for_influxdb(
+        self, intersight_server, current_power_usage_of_intersight_server, timestamp
+    ):
+        """This method generates data formatted for InfluxDB database.
+
+        Args:
+        - intersight_server (string): Cisco UCS server (serial number) managed by Cisco Intersight.
+        - current_power_usage_of_intersight_server (float): current power usage of the Cisco UCS server managed by Cisco Intersight.
+        - timestamp (string): timestamp of the power usage of the Cisco UCS server managed by Cisco Intersight.
+
+        Returns:
+        - power_usage_of_intersight_server_influxdb_data (list of dictionnary): power usage of the Cisco UCS server managed by Cisco Intersight as data formatted for InfluxDB database.
+        """
+        # Create data for InfluxDB.
+        power_usage_of_intersight_server_influxdb_data = [
+            {
+                "measurement": "power_usage_ucs_servers_intersight",
+                "tags": {
+                    "server": f"{intersight_server}",
+                },
+                "fields": {
+                    "current_power_usage_of_ucs_server": float(
+                        current_power_usage_of_intersight_server
+                    )
+                },
+                "time": timestamp,
+            }
+        ]
+
+        logger.info(
+            "Following data describing power usage of Cisco UCS server %s managed by Intersight for the timestamp %s is ready to be written to InfluxDB database:\n%s\n",
+            intersight_server,
+            timestamp,
+            pprint.pformat(power_usage_of_intersight_server_influxdb_data),
+        )
+
+        return power_usage_of_intersight_server_influxdb_data
+
     def get_power_usage_of_intersight_server(self, intersight_server):
         """This method fetches power usage of Cisco UCS server managed by Cisco Intersight.
         It returns data formatted for InfluxDB database.
@@ -154,10 +196,10 @@ class IntersightClient:
             intersight_server,
         )
 
-        # Create time period that includes the last 5 minutes.
+        # Create time period that includes the last minute.
         current_time = datetime.datetime.now()
         end_time = current_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-7]
-        start_time = (current_time - datetime.timedelta(minutes=5)).strftime(
+        start_time = (current_time - datetime.timedelta(minutes=1)).strftime(
             "%Y-%m-%dT%H:%M:%S.%f"
         )[:-7]
         period = start_time + "+02:00/" + end_time + "+02:00"
@@ -175,50 +217,55 @@ class IntersightClient:
         request_payload = intersight.model.telemetry_druid_time_series_request.TelemetryDruidTimeSeriesRequest(
             aggregations=[
                 intersight.model.telemetry_druid_aggregator.TelemetryDruidAggregator(
-                    field_name="sumPowerConsumed",
-                    type="doubleSum",
-                    name="sumPowerConsumed",
-                ),
-                intersight.model.telemetry_druid_aggregator.TelemetryDruidAggregator(
-                    field_name="maxPowerConsumed",
-                    type="doubleMax",
-                    name="maxPowerConsumed",
-                ),
-                intersight.model.telemetry_druid_aggregator.TelemetryDruidAggregator(
-                    field_name="minPowerConsumed",
-                    type="doubleMin",
-                    name="minPowerConsumed",
-                ),
-                intersight.model.telemetry_druid_aggregator.TelemetryDruidAggregator(
-                    field_name="count",
+                    field_name="hw.host.power_count",
                     type="longSum",
                     name="count",
+                ),
+                intersight.model.telemetry_druid_aggregator.TelemetryDruidAggregator(
+                    field_name="hw.host.power",
+                    type="doubleSum",
+                    name="hw.host.power-Sum",
+                ),
+                intersight.model.telemetry_druid_aggregator.TelemetryDruidAggregator(
+                    field_name="host.id",
+                    type="thetaSketch",
+                    name="endpoint_count",
                 ),
             ],
             data_source=intersight.model.telemetry_druid_data_source.TelemetryDruidDataSource(
                 type="table",
-                name="ucs_component_stat",
+                name="PhysicalEntities",
             ),
+            dimensions=[],
             filter=intersight.model.telemetry_druid_and_filter.TelemetryDruidAndFilter(
                 type="and",
                 fields=[
                     intersight.model.telemetry_druid_filter.TelemetryDruidFilter(
                         type="selector",
-                        dimension="serial",
+                        dimension="serial_number",
                         value=f"{intersight_server}",
                     ),
                     intersight.model.telemetry_druid_filter.TelemetryDruidFilter(
-                        type="regex", dimension="blade", pattern="Blade"
+                        type="selector",
+                        dimension="instrument.name",
+                        value="hw.host",
                     ),
                 ],
             ),
             granularity=intersight.model.telemetry_druid_period_granularity.TelemetryDruidPeriodGranularity(
                 type="period",
-                period="PT5M",
+                period="PT1M",
                 timeZone="Europe/Paris",
             ),
             intervals=[period],
-            query_type="timeseries",
+            post_aggregations=[
+                intersight.model.telemetry_druid_expression_post_aggregator.TelemetryDruidExpressionPostAggregator(
+                    type="expression",
+                    name="hw-host-power-Avg",
+                    expression='("hw.host.power-Sum" / "count")',
+                ),
+            ],
+            query_type="groupBy",
         )
 
         try:
@@ -245,15 +292,11 @@ class IntersightClient:
             pprint.pformat(resp_get_power_usage_of_intersight_server),
         )
 
-        # Get current power usage of Cisco UCS server.
-        current_power_usage_of_intersight_server = None
-
-        for result in resp_get_power_usage_of_intersight_server:
-            if result["result"]["count"] is not None:
-                current_power_usage_of_intersight_server = (
-                    result["result"]["sumPowerConsumed"] / result["result"]["count"]
-                )
-                break
+        current_power_usage_of_intersight_server = (
+            resp_get_power_usage_of_intersight_server[0]
+            .get("event", None)
+            .get("hw-host-power-Avg", None)
+        )
 
         if current_power_usage_of_intersight_server is None:
             logger.warning(
@@ -270,153 +313,60 @@ class IntersightClient:
             current_power_usage_of_intersight_server,
         )
 
-        # Create data for InfluxDB.
-        power_usage_of_intersight_server_influxdb_data = [
-            {
-                "measurement": "power_usage_ucs_servers_intersight",
-                "tags": {
-                    "server": f"{intersight_server}",
-                },
-                "fields": {
-                    "current_power_usage_of_ucs_server": float(
-                        current_power_usage_of_intersight_server
-                    )
-                },
-            }
-        ]
+        # Get the timestamp of the power usage of the Cisco UCS server managed by Cisco Intersight.
+        timestamp = (
+            resp_get_power_usage_of_intersight_server[0]
+            .get("timestamp", None)
+            .isoformat()[:-7]
+            + "-01:00/"
+        )
 
-        logger.info(
-            "Following data describing power usage of Cisco UCS server %s managed by Intersight for the period %s is ready to be written to InfluxDB database:\n%s\n",
-            intersight_server,
-            period,
-            pprint.pformat(power_usage_of_intersight_server_influxdb_data),
+        # Create data for InfluxDB.
+        power_usage_of_intersight_server_influxdb_data = self.generate_data_for_influxdb(
+            intersight_server=intersight_server,
+            current_power_usage_of_intersight_server=current_power_usage_of_intersight_server,
+            timestamp=timestamp,
         )
 
         return power_usage_of_intersight_server_influxdb_data
 
-    def get_power_usage_of_intersight_servers(self, list_of_intersight_servers):
-        """This method fetches power usage using IntersightClient->get_power_usage_of_intersight_server for multiple Cisco UCS servers managed by Cisco Intersight.
-        It returns data formatted for InfluxDB database.
+    def get_all_servers_serial_number(self):
+        """This method will get all the Serial Numbers from the servers in an Intersight domain.
 
         Args:
-        - list_of_intersight_servers (list of dictionnaries): list of dictionnaries describing Cisco UCS servers managed by Cisco Intersight.
-        It has the following format [{"server":<server_serial_number>},{...}]
+        - intersight_client (intersight_client_class.IntersightClient): client to make API call on Intersight account
 
         Returns:
-        - power_usage_of_intersight_servers_influxdb_aggregated_data (list) : power usage of Cisco UCS servers managed by Intersight as aggregated data formatted for InfluxDB database.
+        - server_list (list of dictionnaries): list of dictionnaries describing Cisco UCS servers managed by Cisco Intersight.
         """
 
         logger.info(
-            "Fetching power usage of the following Cisco UCS servers managed by Intersight:\n%s\n",
-            [
-                intersight_server["server"]
-                for intersight_server in list_of_intersight_servers
-            ],
+            "Fetching the Serial Numbers of all servers in Intersight account: %s\n",
+            self.intersight_url,
         )
 
-        current_total_power_usage_of_intersight_servers = 0
-        flag_current_total_power_usage_of_intersight_servers_skip_write = False
-        flag_at_least_one_power_usage_of_intersight_server = False
-        power_usage_of_intersight_servers_influxdb_aggregated_data = []
+        api_instance = compute_api.ComputeApi(self._api_client)
 
-        for intersight_server in list_of_intersight_servers:
-            power_usage_of_intersight_server_influxdb_data = (
-                self.get_power_usage_of_intersight_server(
-                    intersight_server=intersight_server["server"]
-                )
+        try:
+            servers_list_from_api = (
+                api_instance.get_compute_physical_summary_list().results
+            )
+            server_list = []
+            for server in servers_list_from_api:
+                if server["management_mode"] in ["UCSM", "Intersight"]:
+                    server_dict = {"server": server["serial"]}
+                    server_list.append(server_dict)
+
+            return server_list
+
+        except intersight.ApiException as exception:
+            logger.error(
+                "Exception of type %s when calling ComputeApi->get_compute_physical_summary_list:\n%s\n",
+                exception.__class__.__name__,
+                exception,
             )
 
-            if power_usage_of_intersight_server_influxdb_data is None:
-                logger.warning(
-                    "The current total power usage of Cisco UCS servers managed by Intersight will not be written to InfluxDB database for the period because power usage of Cisco UCS server %s could not be fetched.\n",
-                    intersight_server["server"],
-                )
-
-                flag_current_total_power_usage_of_intersight_servers_skip_write = True
-
-            else:
-                logger.info(
-                    "Adding the following InfluxDB data describing power usage of Cisco UCS server %s managed by Intersight to the InfluxDB aggregated data:\n%s\n",
-                    intersight_server["server"],
-                    power_usage_of_intersight_server_influxdb_data,
-                )
-
-                power_usage_of_intersight_servers_influxdb_aggregated_data.append(
-                    power_usage_of_intersight_server_influxdb_data[0]
-                )
-
-                logger.info(
-                    "InfluxDB aggregated data is now:\n%s\n",
-                    power_usage_of_intersight_servers_influxdb_aggregated_data,
-                )
-
-                logger.info(
-                    "Updating the current total power usage %s Watt of Cisco UCS servers managed by Intersight with the power usage %s Watt of Cisco UCS server %s.\n",
-                    current_total_power_usage_of_intersight_servers,
-                    power_usage_of_intersight_server_influxdb_data[0]["fields"][
-                        "current_power_usage_of_ucs_server"
-                    ],
-                    intersight_server["server"],
-                )
-
-                current_total_power_usage_of_intersight_servers += (
-                    power_usage_of_intersight_server_influxdb_data[0]["fields"][
-                        "current_power_usage_of_ucs_server"
-                    ]
-                )
-
-                logger.info(
-                    "Current total power usage of Cisco UCS servers managed by Intersight is now  %s Watt.\n",
-                    current_total_power_usage_of_intersight_servers,
-                )
-
-                flag_at_least_one_power_usage_of_intersight_server = True
-
-        if flag_at_least_one_power_usage_of_intersight_server is False:
-            logger.warning(
-                "No single power usage daga of Cisco UCS servers %s managed by Intersight could be fetched. Data write to InfluxDB will be skipped.\n",
-                [
-                    intersight_server["server"]
-                    for intersight_server in list_of_intersight_servers
-                ],
-            )
-
-            return
-
-        if flag_current_total_power_usage_of_intersight_servers_skip_write is False:
-            power_usage_of_intersight_servers_influxdb_aggregated_data.append(
-                {
-                    "measurement": "power_usage_ucs_servers_intersight",
-                    "tags": {
-                        "server": "all_ucs_servers",
-                    },
-                    "fields": {
-                        "current_power_usage_of_ucs_server": float(
-                            current_total_power_usage_of_intersight_servers
-                        )
-                    },
-                }
-            )
-
-            logger.info(
-                "==> Current total power usage of the following Cisco UCS servers managed by Intersight %s is %s Watt.\n",
-                [
-                    intersight_server["server"]
-                    for intersight_server in list_of_intersight_servers
-                ],
-                current_total_power_usage_of_intersight_servers,
-            )
-
-        logger.info(
-            "==> Following data describing power usage of the following Cisco UCS servers managed by Intersight %s is ready to be written to InfluxDB database:\n%s\n",
-            [
-                intersight_server["server"]
-                for intersight_server in list_of_intersight_servers
-            ],
-            pprint.pformat(power_usage_of_intersight_servers_influxdb_aggregated_data),
-        )
-
-        return power_usage_of_intersight_servers_influxdb_aggregated_data
+            sys.exit(1)
 
     def start_polling(self, influxdb_client, time_interval):
         """This method starts to poll Cisco UCS servers managed by Cisco Intersight.
@@ -431,14 +381,22 @@ class IntersightClient:
         )
 
         while True:
-            power_usage_of_intersight_servers_influxdb_aggregated_data = self.get_power_usage_of_intersight_servers(
-                list_of_intersight_servers=self.list_of_intersight_servers_to_monitor
-            )
-            influxdb_client.write_data(
-                power_usage_of_intersight_servers_influxdb_aggregated_data
-            )
+
+            for intersight_server in self.list_of_intersight_servers_to_monitor:
+                power_usage_of_intersight_server_influxdb_data = (
+                    self.get_power_usage_of_intersight_server(
+                        intersight_server=intersight_server["server"]
+                    )
+                )
+
+                if power_usage_of_intersight_server_influxdb_data is not None:
+                    influxdb_client.write_data(
+                        data=power_usage_of_intersight_server_influxdb_data
+                    )
 
             logger.info(
-                "Intersight Client thread sleeping now for %s seconds.\n", time_interval
+                "Waiting for the next polling of Cisco UCS servers managed by Intersight in %s seconds.\n",
+                time_interval,
             )
+
             time.sleep(time_interval)
