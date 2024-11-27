@@ -290,19 +290,19 @@ class IntersightClient:
             pprint.pformat(resp_get_power_usage_of_intersight_server),
         )
 
-        current_power_usage_of_intersight_server = (
-            resp_get_power_usage_of_intersight_server[0]
-            .get("event", None)
-            .get("hw-host-power-Avg", None)
-        )
-
-        if current_power_usage_of_intersight_server is None:
+        if not resp_get_power_usage_of_intersight_server:
             logger.warning(
                 "Current power usage of Cisco UCS server %s managed by Intersight was NOT fetched for the period %s.\n",
                 intersight_server,
                 period,
             )
             return
+
+        current_power_usage_of_intersight_server = (
+            resp_get_power_usage_of_intersight_server[0]
+            .get("event", None)
+            .get("hw-host-power-Avg", None)
+        )
 
         logger.info(
             "Current power usage of Cisco UCS server %s managed by Intersight for the period %s is %s Watt.\n",
