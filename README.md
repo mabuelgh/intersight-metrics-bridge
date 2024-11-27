@@ -34,10 +34,11 @@ git clone https://github.com/mabuelgh/intersight-metrics-bridge.git
 ```
 ### Initial Setup
 
-This project use .env and config/servers_inventory.yaml as source of configurations.
-Instead of creating .env, this project as a python builder ready to use.
+This project uses .env and config/servers_inventory.yaml as source of configurations. 
+Indeed, environment variables are passed to containers during their creation.
+Instead of creating .env manually, this project includes a ready-to-use python script that will set up environment variables.
 The initial_setup_variables.yaml files contains all the basics configurations for the project.
-To add your own Grafana or change the default password, modify this file. If not, keep it as is.
+To add your own Grafana or change the default credentials, modify this file. If not, keep it as is.
 
 1. Get the python required packages :
 ```
@@ -78,7 +79,7 @@ To access the influxDB and Grafana services, type in your browser:
 * 127.0.0.1:8086, for influxDB
 * 127.0.0.1:3000, for Grafana
 
-Default password for influxDB and Grafana is admin / password.
+Default credentials for influxDB and Grafana are admin / password.
 
 ## Collected Metrics
 * Host Power Usage in Watt.
@@ -87,7 +88,7 @@ Default password for influxDB and Grafana is admin / password.
 * New metrics to fetch.
 
 ## New Features
-* If you do not input Servers Serial Number in the YAML inventory, it will result in the collection of all servers in an Intersight domain.
+* If you do not input Servers' Serial Number in the YAML inventory, it will result in the collection of all servers in an Intersight domain.
 
 ## Authors
 
