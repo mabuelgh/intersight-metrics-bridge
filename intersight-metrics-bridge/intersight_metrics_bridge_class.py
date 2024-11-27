@@ -25,6 +25,8 @@ class IntersightMetricsBridge:
 
         self.influxdb_client = None
 
+        self.intersight_client = None
+
         self.list_of_intersight_clients = []
 
         self.list_of_intersight_servers_to_poll = None

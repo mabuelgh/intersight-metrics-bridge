@@ -81,13 +81,13 @@ To access the influxDB and Grafana services, type in your browser:
 Default password for influxDB and Grafana is admin / password.
 
 ## Collected Metrics
-* Host Power Usage in Watt
+* Host Power Usage in Watt.
 
 ## Features to come
-* New metrics to fetch
+* New metrics to fetch.
 
 ## New Features
-* No Serial Number in YAML inventory will result in collection of all servers in an Intersight domain.
+* If you do not input Servers Serial Number in the YAML inventory, it will result in the collection of all servers in an Intersight domain.
 
 ## Authors
 

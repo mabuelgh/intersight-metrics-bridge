@@ -8,8 +8,6 @@ import sys
 import time
 import urllib3
 
-from dateutil import tz
-
 import intersight
 from intersight.api import compute_api, telemetry_api
 import intersight.model.telemetry_druid_aggregator
@@ -90,7 +88,7 @@ class IntersightClient:
         )
 
         # Set signing info for V2 or V3 type of auth
-        if "RSA" in open(self._intersight_secret_key_path).read():
+        if "RSA" in open(self._intersight_secret_key_path, encoding="utf-8").read():
             # V2
             signing_scheme = intersight.signing.SCHEME_RSA_SHA256
             signing_algorithm = intersight.signing.ALGORITHM_RSASSA_PKCS1v15
